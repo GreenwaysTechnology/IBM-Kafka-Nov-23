@@ -1,0 +1,527 @@
+		   Event Driven Architecture and Kafka
+.....................................................................................
+Learning Track:
+...............
+
+1.Introduction to kafka 
+2.Kafka Architecture
+3.Kafka Programming using cli
+4.Producers and Consumers
+5.Kafka Connect
+6.Kafka Streams using KsqlDB
+
+Note: we dont use any programming language to connect to produce and consume kafka messages.
+.....................................................................................
+			Apache Kafka
+.....................................................................................
+
+Before Kafka:
+
+Distributed Applications and Data transfer
+..........................................
+
+Application(software system) Develpment patterns:
+.................................................
+
+Network based Applications - Distributed Application
+
+
+Application has layers:
+
+1.User interface layer
+2.Application biz layer
+3.Data Layer /Repository layer
+  3.1.Integration layer
+
+
+Architecture of Distributed Application
+
+1.Mainframework based distributed
+   1.Application biz layer
+   2.Data Layer /Repository layer
+ Where as User interface layer is kept in dump terminals connected to mainframworks.
+
+Drawbacks:
+1.Too costly
+2.scalability is too difficult.
+
+Advantage:
+1.High security
+2.Centeralized management.
+
+
+2.Client Server Architecture
+
+2.1.Main framework based client -server , where as mainframe acts as server and digital computers act as clients.
+ 
+2.2.Digital computer based client - server architechture
+   Servers and clients are digital computers
+
+
+Based on this we can classify the applications  layered /tiered concept
+
+1.single tier/layer
+   client,server,database every is kept in one single machine...
+2.two tier/layer
+  user interface is kept in client machine,
+  data logic and biz logic is kept in server machine
+ both machines are connected via networks
+
+          "This arch based on LAN /WAN"
+
+3.three tier /layer
+
+ This arch based on "internet network" and web computing
+
+   client - client machine
+   server - biz logic is kept inside another machine
+   database - is kept inside another machine
+
+ Client is browser
+ Server BIZ logic is kept as "web Applications"
+ Database is accessed by "Server side technologies - J2EE,ASP/.net,PHP,....
+
+4.N-tier / layer
+
+ Client is browser
+ Server BIZ logic is kept as "web Applications"
+   -Again spilt into multi layered
+ Database is accessed by "Server side technologies - J2EE,ASP/.net,PHP,....
+.....................................................................................
+			Sharing data among layers
+....................................................................................
+Data is every thing..
+
+Every Enterprise is powered by data.
+
+We take information in, analyze it, manipulate it and creates more as output.
+
+Every application creates data, whether it is log messages,metrics,user activity,out going messages, or something else.
+
+Every byte of data has a story to tell, something of imporatance that will inform the next thing to be done.
+
+In order to know what that is, we need to get the data from where it is created to where it can be analyzed.
+
+We see this every day on websites like amazon,youtube,facebook, where our "clicks" on on items of interest to use are turned into recommmendations that are shown to us litte later.
+
+The faster we can do this, the more agile and resonsive our organizations can be.
+The less effort we spend on moving data around, the more we can focus on the core business at hand.
+......
+....................................................................................
+			Publish and Subscribe Messaging (data):
+...................................................................................
+
+Before discussing the Apache Kafka , it is imporant for us to understand the concept of pub/sub messaging and why it is important.
+
+Pub and sub messaging is  a pattern that is characterized by the sender(publisher) of a piece of data (message) not spcificially directing to a reciver, Instead, the publisher classifies the message somewhat, and that receiver(subscriber) subscribes to receive certain of classes of messages.
+
+Pub /Sub systems often have a broker, a central point where messages are published , to facilite this.
+
+.....................................................................................
+			  How enterprise systems handles data
+			             (Pre Kafka)
+....................................................................................
+
+
+Many use cases for pub/sub starts with same way.
+
+   With a simple message queue or interprocess communication channel
+
+for eg, you create an application that needs to send montioring information somewhere. How do you send?
+
+You write monitoring message in a direct connection from your application to an application that displays your metrics on a dashboard, push metrics over that connection.
+
+let us say, you have systems, that system has two servers - frontend server,
+back end server
+
+	  both server sends metrics data to metrics server
+
+		 FrontEnd                 BackEnd Server
+		  Server
+		    |				|
+		    |				|
+		--------------------------------------
+				|
+			    Mertics Server
+
+
+If your server is running in clustered env
+
+		FrontEnd               FrontEnd Server
+		  Server
+		    |				|
+		    |				|
+		--------------------------------------
+				|
+			    Mertics Server
+
+
+		 Backend Server            Backend Server
+		  Server
+		    |				|
+		    |				|
+		--------------------------------------
+				|
+			    Mertics Server
+
+
+
+A single , direct metric servers irresptive of how many backend and front end server
+
+This looks a simple soultion to a problem that works when you are going to getting started with monitoring.
+
+Before long,you decide you would like to analyze your metircs over a longer term,
+that doesnot work very well in dashboard.
+
+When you introduce new service in your biz and where you have to introduce server,
+Now you have three more apps, that generating metrics data ,then metrics server need connect directly , recive,store,anaylze
+..............................................................................
+			Many Metrics publisher, using direct connections
+.....................................................................................
+
+ FrontEnd server  Database Server  Chat server  Mail Server PaymentServer
+         |            |                |           |            |
+-----------------------------------------------------------------------......
+                                |
+			   publish metrics
+				|
+			    Metric Server
+
+
+
+Here all publisher are publishing "directly" metics to Metrics Servers.
+
+       "What if i want to store front data ,database data,back end data separatly"
+
+....................................................................................
+			Loosly Coupled Metric publisher and Server
+		         Introduction of Pub/Sub Messing System
+...................................................................................
+
+ FrontEnd server  Database Server  Chat server  Mail Server PaymentServer
+         |            |                |           |            |
+-----------------------------------------------------------------------
+                                |
+			   publish metrics
+				 |
+			      Metrics
+			      Sub/Pub
+				|
+			    Metric Server
+
+Every Pub sub system is going to store messages inside "Queue" , the basic data storage model.
+In the above system we have only one /Single /Individual Queue System.
+
+Image one of your coworkers has been doing similar work with log messages, another has been working on tracking user behavior on the frontend website and providing that information to developers who are working on machine learning,
+As well as creating some reports for management.
+
+
+...................................................................................
+			 Multi Pub Sub Systems
+...................................................................................
+
+FrontEnd server  Database Server  Chat server  Mail Server PaymentServer 
+         |            |                |           |            |
+-----------------------------------------------------------------------
+                                |
+
+Metrics     Logging              Tracking
+Pub/Sub     Pub/Sub              Pub/Sub
+  |           |                    |
+Metric    ---------             ----------       
+Server    |       |                |
+        Secuirty Log Search      MachingLearning 
+	Analysis Server		 and AI server
+         
+
+Now at last , we have refactored our system, but there is lot of "Duplication"
+Your company is maintaining multiple systems for queuing data, all of which have their own individual bugs and limitations.
+You will have more systems in future it will come.
+
+..................................................................................
+....................................................................................
+			Birth of Kafka :Entering into Kafka
+....................................................................................	
+Apache Kafka is pub/sub messaging system designed to solve the above problem.
+Instead of having multiple  Queue System, we can have only one System where we receive message,organize the message,store,process,and produce the report.
+
+Traditional Messaging Systems:
+..............................
+
+Traditional Messaging systems are built based on the standards like "AMQP" protocal.
+Any pub/sub messaging product like rabbit mq is built on the standards only.
+
+
+According to the AMQP Standards.
+ 
+1.Messages are stored in a queue
+2.Queue stores messages which is tranisent by default. if you want you can persit in disk.
+3.The messages can be altered(update,delete)
+4.The messages are deleted once it is consumed
+
+	"Kafka was not designed based on Traditional Messaging System"
+	 "Kafka was not designed based on AMQP Protocal Specification"
+
+Kafka inspired from "Logging System" or Loggers to store messages, instead of storing message in traditional messaging systems.
+
+ 		"Kafka was designed based on  Loggers"
+
+What is Log?
+   Tracking activites of an application,store those activites in "memory or in  a disk file" in order to analyze them in furture.
+	
+If you are developer, you encounter loggers every day in your development cycle.
+
+Logs gives complete information about the system which is running.
+
+
+if you are java developer, you might have used various logging implementations.
+We call as "Logging Frameworks"
+
+Log gives just information about "what just happened or happing" in your system for eg
+some warings,some info,some bugs, some tracking , some tracing..........
+
+Logs :
+2016-06-16 17:02:13 TRACE Trace log message
+2016-06-16 17:02:13 DEBUG Debug log message
+2016-06-16 17:02:13 INFO  Info log message
+2016-06-16 17:02:13 ERROR Error log message
+
+.....................................................................................
+			 Log structure and its characteristics
+.....................................................................................
+
+Log information is stored in a file called "Log file" - system.log
+Log file is used for future analytics such as debugging,finding warnings,errors...
+
+What is difference between "normal files" and log files?
+
+=>Log files are "append only", you cant add any new entry in between, which makes the file "immutable" - cant be edited or read only.
+
+=>Normal files are based on "Edit Mode" or Replace mode
+    Files are edited or replaced later.
+
+  		"Kafka is just based on Log System"
+		    Kafka is just Logger System
+
+
+
+    Since kafka is logger system is it same as "Slf4j,log4j" Kind of loggers.
+
+Some what yes, but Kafka is more beyond that....
+
+	    Kafka is not based on "traditional log files" 
+
+
+Kafka is fundmentally based on "Commit Logs"
+
+What is commit log?
+    "In data management platforms, a commit is making set of tenative changes permanent".
+    "Making the end of a transaction and providing Durablity to ACID transactions"
+  The record of commits is called "Commit log"
+
+What Kafka is going to record into commit log?
+     Kafka was designed to store informations(data).
+
+What type of information?
+  Any type of information we can store into commit log.
+..........................................................................................................................................................................
+			  Event
+....................................................................................
+What is Event?
+   An Event is any type of action,incident,or change are "happening" or "just happened"
+for eg:
+  Now i am typing,Now i am teaching - happening
+  Just i had coffee,Just i received mail, just i clicked a link, just i searched product - happened.
+
+ "An Event is just remainder or notification of  your happenings or happened"
+...................................................................................
+...................................................................................
+		     Event Driven Architecture(Software system)
+....................................................................................
+
+The Software system can track what is happening, just happended , stores into a file called commit log, later that commit log can be replayed to process those events to produce various reports
+ 			
+			 FronEnd Server
+				|
+			  What is happening or happened
+			 (User has clicked  "iphone 15 link") - event
+				|
+			   store userclick event into log file
+				|
+			     Kafka 
+				|
+			    events.log
+				17-07-2023 3:48:59  iphone 15 link
+				17-07-2023 3:49:58  dell lap top link
+
+Let us imagine, You have mobile apps, which tracks your locations where ever you move, those locations are recorded into a file by "Event Driven System"(Kafka).
+Based on those data , you can get report like that where were you at morning,afternoon,evening...
+
+Eg:
+ Today stock price is $40 at 10Am
+ I met my friend yesterday at east coast road
+ Made payment of $500 to Ramesh
+
+Imgaine i need  somebody or somthing should record every activity of my life from the early moring when i get up and till bed.
+
+  There is a system to record every events of your life that is called 
+			      Kafka
+
+	 Kafka is Event Processing Software , which stores and process events
+
+.....................................................................................
+			Kafka Basic  Architecture
+.....................................................................................
+
+How kafka has been implemented?
+
+   "Kafka is a software"
+   "Kafka is a file(Commit log file) processing software
+   "Kafka is written in java and scala" - Kafka is just java application
+   "In order to run Kafka we need JVM"
+
+How event is represented into kafka?
+
+	Event is just a message.
+        Every message has its own arch.
+        In Kafka the Event/Message is called as "Record".
+		Event(Record)
+
+
+Event Contains Two things:
+..........................
+1.What happened/Happing - Name of the Event
+2.State - Data
+
+State:
+......
+  The state is nothing but data.
+
+State Representation:
+
+ In General state(data) is stored in relational databases "as table"
+ A table represents the state of something like 
+    User - id,name,email,password,city
+
+Since User data can be stored and proceed into tables.
+
+Can we store events into table?
+   Events also has state like things(user,customer,product) in real time.
+
+We can but not all types of events into table.
+........................................................................
+.....................................................................................
+			    Modern Data Modeling
+.....................................................................................
+     Generally domains are modeled based on "Things(Customer,Order,Payment) first"
+	  Now a days People started thinking based on Events first
+          Instead of storing things into database , we store events
+
+Events also has some state like "Things"
+
+   "Events has some description of what happened with it", but Primary idea is that          event is indication in time that thing took place".
+
+How to store events?
+   Logs - Log is structured and the sequence  of the evnets occured in the method calls.
+
+According to Kafka Official Definition:
+
+	"Apache Kafka is an open source distributed streaming system used for stream 	processing, real-data time pipelines, and data integration at scale"
+
+....................................................................................
+			 kafka Distribution - Kafka Setup
+...................................................................................
+
+Kafka was orginally created by "Jay kreps,Neha,Jun Rao" at Linkedin to solve the problems of distributed "Pub/Sub" Message system.
+
+Once the Kafka was ready, Kafka Creators wanted to open source, who released the Kafka under "Apache license" early 2011.
+
+After Kafka relase it become very popular, later Jay ,Neha ,Jun Rao started the company called "Confluent".
+
+Confluent then took Apache Kakfa as a core and who built various production ready tools, support, cloud integration
+
+
+Kafka distribution:
+ Kafka is available in two distribution
+
+1.Apache Kafka
+   It is open source version of kafka 
+
+2.Confluent Kafka
+   It is abstraction of apache kafka, Commericial version of apache kafka
+
+
+Apache kafka vs confluent kafka
+https://www.confluent.io/apache-kafka-vs-confluent/
+
+
+Platforms:
+
+Kafka can be installed any platform
+
+1.Bare metal machines
+  Kafka is available for all operating system.
+
+1.Windows - may be good for basic use cases
+2.Linux - recommended for advanced use cases
+3.mac - recommended for advanced use cases
+
+2.VM env
+  You  can setup kafka on any industry standard VMS - oracle virtual box
+
+3.Container based distributed: - docker and kubernetes
+   It is recommened in development env and also can be used in prod
+
+
+We are going to setup:
+
+Apache Kafka | confluent Kafka
+1.Linux - bare metal machine
+2.Docker - Container
+
+Lab setup:
+
+1.setup linux:
+..............
+
+Linux: Ubuntu 20.x
+
+Lab setup:
+
+1.setup linux:
+..............
+
+Linux: Ubuntu 20.x
+
+sudo apt get-update
+
+sudo apt get-upgrade
+
+1.java 
+
+jdk 11.
+
+sudo apt install openjdk-11-jdk -y
+
+....................................................................................
+
+Setting up Kafka:
+
+
+1.Apache Kafka -https://kafka.apache.org/
+  =>Source distribution
+	-you can build from the source
+  =>Binary distribution
+        -you can download already built folder
+
+https://downloads.apache.org/kafka
+https://archive.apache.org/dist/kafka
+
+wget https://downloads.apache.org/kafka/3.6.0/kafka_2.12-3.6.0.tgz
+
+
+
+
+
+
+
