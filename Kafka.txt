@@ -569,7 +569,7 @@ General Characteristics of Distributed architecture:
   Running more than one process, hosting the same app, Running the same app on multiple servers.
 
 Cluster:
-   When we scae apps into multiple servers, we neeed to group them under a single unit. Group of machines are called as "Cluster".
+   When we scale apps into multiple servers, we neeed to group them under a single unit. Group of machines are called as "Cluster".
 
 2.High Avaiablity:
   If any one server fails in the cluster, clients should not be affected, we need to make our app always available
@@ -1263,6 +1263,397 @@ Property options will give meta or detailed information about messages and topic
 Time Stamp Property:
 ...................
   It is property used to know when event was published.
+
+--property <String: prop>                The properties to initialize the
+                                           message formatter. Default
+                                           properties include:
+                                          print.timestamp=true|false
+                                          print.key=true|false
+                                          print.offset=true|false
+                                          print.partition=true|false
+                                          print.headers=true|false
+                                          print.value=true|false
+                                          key.separator=<key.separator>
+                                          line.separator=<line.separator>
+                                          headers.separator=<line.separator>
+                                          null.literal=<null.literal>
+                                          key.deserializer=<key.deserializer>
+                                          value.deserializer=<value.
+                                           deserializer>
+                                          header.deserializer=<header.
+                                           deserializer>
+.....................................................................................
+			 Partitions
+.....................................................................................
+As we discussed already, topic is just reprentation of folder and collection of files.
+When you create a topic, it is created folder  "topicname-0"
+
+if a topic were constrained to live entirely on one machine,that would place a pretty radical limit on the ability of kafka to scale.
+It could manage many topics across many machines- Kafka is a distributed system, after all - but no one topic could ever get too big or asipir to accomadate too many reads and writes.
+
+Fortunately, kafka does not leave us withouts options here, it gives us the ability to partition topics
+
+Partitions means breaking topic into multiple folders and files.
+
+Partition takes single topic log and breaks it into multiple logs, each of which can live on separate node in the kafka cluster.
+
+This way , the work of storing messages, writing new messaging and processing existing messages can be splilt among many nodes in the cluster.
+
+Every partition is just folder, Each folder has its own log file..
+.....................................................................................
+			  
+		          payment-topic
+				|
+			---------------------------------------
+			|       |                |
+               payment-topic-0 payement-topic-1 paytment-topic-2	
+                   |                |              |
+              log files         log files        log files
+
+
+By default every topic has single partition.
+.....................................................................................
+			 Creating topic with multiple partitions
+.....................................................................................
+./bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic payment --partitions 3
+Created topic payment.
+
+After creating partitions, you can see inside kafka log folder. /tmp/kafka-logs
+
+ /tmp/kafka-logs
+         |
+         payment-0  - 0 is partition no
+         payment-1  - 1 is partition no
+         payment-2  - 2 is partition no
+
+Describe topic with partitions
+ ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic payment
+Topic: payment  TopicId: OR-yFkp4RTu_dn1o64wEuw PartitionCount: 3       ReplicationFactor: 1    Configs:
+        Topic: payment  Partition: 0    Leader: 0       Replicas: 0     Isr: 0
+        Topic: payment  Partition: 1    Leader: 0       Replicas: 0     Isr: 0
+        Topic: payment  Partition: 2    Leader: 0       Replicas: 0     Isr: 0
+
+Why Partitions?
+  Partitions helps to distribute messages into multiple log files so that we dont need to dump into one single log file, we can scale the events across multiple files.
+			
+                    "Partitions help unit of parallelism"
+.....................................................................................
+			    Segments
+....................................................................................
+What is segment?
+  Segement is just actual log file containing "Records".
+  Record is just "Message/Event". Record is term used by kafka to represent incomming message.
+  In kafka data is written into file system,  data is called "record" which has some structure, that will explore soon.
+ 
+ Segment is nothing file, called log file.
+
+Exploring log files:
+
+:/tmp/kafka-logs/payment-0$ ls -l
+total 8
+-rw-r--r-- 1 subu subu 10485760 Nov 15 14:44 00000000000000000000.index
+-rw-r--r-- 1 subu subu        0 Nov 15 14:44 00000000000000000000.log
+-rw-r--r-- 1 subu subu 10485756 Nov 15 14:44 00000000000000000000.timeindex
+-rw-r--r-- 1 subu subu        8 Nov 15 14:44 leader-epoch-checkpoint
+-rw-r--r-- 1 subu subu       43 Nov 15 14:44 partition.metadata 
+
+
+Here segment is group of files
+
+.log
+.index
+.timeindex
+
+00000000000000000000 -name of the file.
+
+This file contains messages called records.
+
+Records are stored as "Byte Array"
+
+00000000000000000000.log => This is the file which stores actual log messages(records)
+.....................................................................................
+			 Segment File or Log File Architecture
+.....................................................................................
+How events or data or message or record is stored into segment.
+
+Actual Log file is structured with two parts
+
+1.Actual data - event
+2.Offset
+ 
+As we discussed event is published into segement as "record" which is simply byte array.
+
+offset:
+  An , offset into a file is simply character location within that file, usually starting with 0; thus offset "240" is actually the 241 th byte in the file
+
+
+  (Byte array)
+  a  b  c  d e f g -------------------Actual Record
+ ..........................
+  0  1  2  3 4 5 6 ------------------>Offset
+
+When ever you publish event into topic, into partition, and into segment event to be inserted along with offset no, which is calculated by finding last offset no and increment by 1 and insert new data with offset no.
+.....................................................................................
+			Partion and multple segments(logfiles)
+.....................................................................................
+
+By default every partition , will have single log file, but we can have more segements (log files).
+
+Multiple log files inside single folder(partition)
+
+filesNames:
+
+partion-0
+   |
+  0000000000000000000000000000.log - segment-0
+  0000000000000000000000000001.log - segment-1
+  0000000000000000000000000002.log - segement-2
+
+Since we have many log files, which log file can get data for write operation.
+
+		"Active Segement"  only gets data
+
+How many segment files we can have for a partition?
+
+ There is no limit of "segement files".
+
+Segments are created based on two factors:
+
+1.Size 
+2.Time
+
+The segment size(file size) is determined by the proprty
+
+log.segement.bytes
+     The maximum size of a single log file.
+     When it reaches, kafka will create new one.
+     default is 1 gb
+
+Time:
+ log.segement.ms
+   The Kafka will wait before creating new file based on time.
+   default is 1 week.
+
+Either one is statisfied , new log file is created.
+
+How to represent multiple segment files and how messages are published into a active segment?
+
+segment-0             segment-1       Segment-2
+offset o to 1006     1007 to 2000     2001 to ongoing		 
+.....................................................................................
+
+Lab:
+ Multiple segement files (log files)
+
+server.properties.
+
+# The maximum size of a log segment file. When this size is reached a new log segment will be created.
+#log.segment.bytes=1073741824
+
+Steps:
+1.configure the server.properites
+log.segment.bytes=1000
+2.publish messages until it reaches 1000 bytes
+3.look into kafka log file location.
+
+publish events 
+/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic sales
+>2323ljjlskjlkdjfa;lkfjdsalkfasjf
+>asdfasdf
+>adsfasfasfas
+>adfasdfasfdasf
+>afasfasfsaf
+>dfldskfsa;lfjsadlkfjsadflkasdfj
+>lasdkjfa;lkdsfja;dslkfjads;lkfjsafl;k
+>l;akdjflaskfjas;lkfjsa
+>;ladkjfa;lksfjsad;lfkdsajf
+>;lakjdsf;laskjfsa;lfkj
+>rsfsdfsdlkfjdslkfdsjf
+>;lkajdflksajfsa
+>f;aldskfjas;lkfjdsaf
+>;lakdjf;alkfja;dlfkjsa
+>l;adjfa;lskfjsa;lfkjdsaf
+
+
+sales-0$ ls -l
+total 24
+-rw-r--r-- 1 subu subu        0 Nov 15 16:25 00000000000000000000.index
+-rw-r--r-- 1 subu subu      984 Nov 15 16:25 00000000000000000000.log
+-rw-r--r-- 1 subu subu       12 Nov 15 16:25 00000000000000000000.timeindex
+-rw-r--r-- 1 subu subu 10485760 Nov 15 16:25 00000000000000000011.index
+-rw-r--r-- 1 subu subu      353 Nov 15 16:25 00000000000000000011.log
+-rw-r--r-- 1 subu subu       56 Nov 15 16:25 00000000000000000011.snapshot
+-rw-r--r-- 1 subu subu 10485756 Nov 15 16:25 00000000000000000011.timeindex
+-rw-r--r-- 1 subu subu        8 Nov 15 16:23 leader-epoch-checkpoint
+-rw-r--r-- 1 subu subu       43 Nov 15 16:23 partition.metadata
+
+Your task:
+ Try with  log.segement.ms
+.....................................................................................
+			How to inspect the internals of log file
+				 (Dump log)
+.....................................................................................
+
+Some times when you are working with Kafka, you many find yourself needing to manually inspect underlying logs of a topics.
+
+Whether you are just curious about kafka internals, or you need to debug an issue and verify the content, the kafka-dump-log command is your friend.
+
+
+kafka-dump.log.sh
+
+Lab:
+ Verify the internal structure of "Segment" file.
+
+$ ./bin/kafka-dump-log.sh --print-data-log --files /../tmp/kafka-logs/sales-0/00000000000000000000.log
+Dumping /../tmp/kafka-logs/sales-0/00000000000000000000.log
+Log starting offset: 0
+baseOffset: 0 lastOffset: 0 count: 1 baseSequence: 0 lastSequence: 0 producerId: 2000 producerEpoch: 0 partitionLeaderEpoch: 0 isTransactional: false isControl: false deleteHorizonMs: OptionalLong.empty position: 0 CreateTime: 1700045725504 size: 100 magic: 2 compresscodec: none crc: 2082850056 isvalid: true
+| offset: 0 CreateTime: 1700045725504 keySize: -1 valueSize: 32 sequence: 0 headerKeys: [] payload: 2323ljjlskjlkdjfa;lkfjdsalkfasjf
+baseOffset: 1 lastOffset: 1 count: 1 baseSequence: 1 lastSequence: 1 producerId: 2000 producerEpoch: 0 partitionLeaderEpoch: 0 isTransactional: false isControl: false deleteHorizonMs: OptionalLong.empty position: 100 CreateTime: 1700045726634 size: 76 magic: 2 compresscodec: none crc: 4005214925 isvalid: true
+| offset: 1 CreateTime: 1700045726634 keySize: -1 valueSize: 8 sequence: 1 headerKeys: [] payload: asdfasdf
+baseOffset: 2 lastOffset: 2 count: 1 baseSequence: 2 lastSequence: 2 producerId: 2000 producerEpoch: 0 partitionLeaderEpoch: 0 isTransactional: false isControl: false deleteHorizonMs: OptionalLong.empty position: 176 CreateTime: 1700045727906 size: 80 magic: 2 compresscodec: none crc: 1139443005 isvalid: true
+
+
+./bin/kafka-dump-log.sh --print-data-log --files /../tmp/kafka-logs/sales-0/00000000000000000011.log
+Dumping /../tmp/kafka-logs/sales-0/00000000000000000011.log
+Log starting offset: 11
+baseOffset: 11 lastOffset: 11 count: 1 baseSequence: 11 lastSequence: 11 producerId: 2000 producerEpoch: 0 partitionLeaderEpoch: 0 isTransactional: false isControl: false deleteHorizonMs: OptionalLong.empty position: 0 CreateTime: 1700045747438 size: 83 magic: 2 compresscodec: none crc: 4285636970 isvalid: true
+
+....................................................................................
+			   index files
+....................................................................................
+
+.index
+   Contains the mappings of "offset" to its position in ".log" file
+.timeindex
+   file contains the mappings of "Timestamp" to message offset.
+
+Records(messages or events) are searched by consumers based these index files only.
+
+....................................................................................
+			 Consumers and offsets
+...................................................................................
+
+Consumers can read records from the "segement" based on offset only.
+
+Consumers can read records
+
+1.from the begining - -0th offset
+2.from the active position - from the current offset
+3.based on explicit offset no.
+
+Note:
+ if you read record based on offset,you must supply partition option.
+
+ ./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic orders --offset 2
+--partition 0
+order pending
+order cancelled
+^CProcessed a total of 2 messages
+.....................................................................................
+		  Records(Events/Messages) distributions and partitions
+....................................................................................
+
+Topics are broken into partitions, partitions are broken into segements.
+
+As a Producer, we send data to the topic only,Topic only distributes messages among partitions.
+
+
+Partitioner:
+  Partitioner is a process/algorthim that will determine to which partition  a particular message/event/record will be assigned.
+
+	"In Nutshell Partitioner is simple java progra/class Having 
+		Routing algorthim"
+		 
+                "That algorthim only decides where to go"
+		 
+For eg, i have a topic , having 3 partitions
+
+Record----->publish------Partitioner------Where to go ---PO or P1 or P2
+
+Record contains information for how to select partition...
+
+
+Partitioner Algorthims:
+......................
+
+1.Round Robin
+2.Stick Partitioner 
+3.Key based Partitioner
+
+1.Round Robin:
+..............
+  It is default algorthim used in kafka older versions less than 2.3
+
+Lets assume i have two partitions
+
+M1--->P1
+M2---->P2
+M3--->P1
+M4--->P2
+
+In round robin, messages are distributed equally to all partitions.
+
+Drawbacks of Round robin:
+
+Lets assume that , you have sensor device which is polling events every ms , kafka receives that event via network ,and stores into partitions.
+
+if you do so, if more messages and more partitions, it creates the highest latency and low performance.
+
+After 2.3 kafka introduced new concept called "Batching"
+........................................................
+instead of sending every record over network, we can accumulate records , make it as batch.
+
+2.Sticky Partitioner Algorthim:
+...............................
+=>It is built on the top of Round robin only.
+=>Sticky partitioner wont send a single record/event/message rather it send as a batch.
+=>It improves the performance,reduces network latency.
+=>This is default partitioner in the latest kakfa
+
+Sticky = {Round Robin + Batching}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
