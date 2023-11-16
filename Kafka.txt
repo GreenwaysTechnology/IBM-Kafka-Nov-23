@@ -1613,10 +1613,242 @@ instead of sending every record over network, we can accumulate records , make i
 
 Sticky = {Round Robin + Batching}
 
+3.Key based partitioner Alogorthim.
+
+Before deep divide , we need to understand, Message structure.
+
+In Kafka Messages(Records/Events) are organized based on "key-value" pair.
+
+Can we know that record has key?
+Yes
+
+Lab:
+ How to print key of Record...
+
+./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic orders --from-beginning --property print.key=true
+null    order placed
+null    order reserved
+null    order pending
+null    order cancelled
+
+--property print.key=true which prints key  and value.
+
+Here order placed is value
+null is key.
+
+By default message/event has key whether you are giving or not, if you dont give any key then key would be "null".
+
+              if any message/event/record is distributed with null key , then
+			 "Sticky partitioner would be used".
+
+Lab: Knowing how stickpartiionare are used
+ Create topic with 2 partitions
+ Distribute message with 'null' key - without key
+ watch in consumer side keys and partitions.
+
+/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic product  2
+--partitions 2
+Created topic product.
+
+Start two command prompt for producer:
+ ./bin/kafka-console-producer.sh --bootstrap-server  localhost:9092 --topic product
+ ./bin/kafka-console-producer.sh --bootstrap-server  localhost:9092 --topic product
+
+Start  consumer:
+/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic product  --from-beginning --property print.key=true --property print.partition=true
+Partition:1     null    phone
+Partition:1     null    book
+Partition:1     null    kd;fjlkdsafjsa
+Partition:0     null    hello
+Partition:0     null    computer
+Partition:1     null    food
+Partition:0     null    test
+Partition:1     null    heee
+Partition:1     null    kjflakdsf
+Partition:0     null    hess
+.....................................................................................
+			 Key based Distribution
+.....................................................................................
+We can supply key, based on key messages/events can be distributed.
+
+How key-value pair messages are distributed among partions?
+
+Kafka uses an alogrthim called "key Hashing algorthim".
+
+Key hashing is the process of determing the mapping of a key to a partition in the default partitioner.
+
+The keys are hashed based on an alogorthim called "murmur2"
+ 
+  TargetPartition= Math.abs(Util.murmur2(keyInBytes) % (numofPartitions-1)
+
+Note:
+ if you have same key, but different values, the same partition will be used
+
+Lab:
+=>create topic with 2 partions
+=>Publish message with key
+=>Consume message...
+
+ ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic user  2 --p
+artitions 2
+Created topic user.
+
+./bin/kafka-console-producer.sh --bootstrap-server  localhost:9092 --topic user --property "key.separator=:" --property "parse.key=true"
+>1:subramanian
+>2:ram
+>3:karthik
+>abc:foo
+>78:bar
+>45:89
+
+Consumer:
+./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic user  --fr
+om-beginning --property print.key=true --property print.partition=true
+
+Partition:1     1       subramanian
+Partition:0     2       ram
+Partition:1     3       karthik
+Partition:1     abc     foo
+Partition:1     78      bar
+Partition:0     45      89
+.....................................................................................
+			   Kafka Log Rentention and Cleanup Policies
+...................................................................................
+
+What is log rention?
+	The policy can be set to delete segments after a period of time, or after a given size has accumulated.
+	A segment will be deleted whenever *either* of these criteria are met. Deletion always happens from the end of the log.
+
+The following configurations control the disposal of log segments.
 
 
+# The minimum age of a log file to be eligible for deletion due to age
+log.retention.hours=168
+log.retention.minutes=10
+log.retention.ms=1000
+
+# A size-based retention policy for logs. Segments are pruned from the log unless the remaining
+# segments drop below log.retention.bytes. Functions independently of log.retention.hours.
+#log.retention.bytes=1073741824
+
+if you mention this policy in server.properties, it is applied for all log files.....
+.....................................................................................
+				
+Deletion policy set  for entire broker - server.properties.
+Delete policy can be set for particular topic - during topic creation you can supply that property.
+
+Lab:
+ Create topic with Retension policy.
+
+Topic creation:
+./bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic hello --config retention.ms=20000
+
+Start publishing and consuming:
 
 
+ ./bin/kafka-console-producer.sh --bootstrap-server  localhost:9092 --topic hello
+>Hello
+>hai
+>welcome
+>how are you
+>test
+>h
+>jadf
+>klsdlfkjsadfl
+>klasdjflkdsafjadsfk
+>lkasdjfslkdfjsadkfjsadf;klsajfsa;lkfjsa
+>sdfsadfsadf
+>adsfasdfasdf
+>adfadsfasdf
+>adsfdsfadsf
+
+./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic hello  --f
+rom-beginning --property print.key=true --property print.partition=true
+Partition:0     null    Hello
+Partition:0     null    hai
+Partition:0     null    welcome
+Partition:0     null    how are you
+Partition:0     null    test
+Partition:0     null    h
+Partition:0     null    jadf
+Partition:0     null    klsdlfkjsadfl
+Partition:0     null    klasdjflkdsafjadsfk
+Partition:0     null    lkasdjfslkdfjsadkfjsadf;klsajfsa;lkfjsa
+Partition:0     null    sdfsadfsadf
+Partition:0     null    adsfasdfasdf
+Partition:0     null    adfadsfasdf
+Partition:0     null    adsfdsfadsf
+
+After 2mins you can watch that file getting deleted and new logfile is beging created.
+
+Server log which shows how , log entry is getting deleted.
+..........................................................
+
+kafka.storage.internals.log.ProducerStateManager)
+[2023-11-16 15:26:10,021] INFO [UnifiedLog partition=hello-0, dir=/tmp/kafka-logs] Deleting segment LogSegment(baseOffset=0, size=1103, lastModifiedTime=1700128531602, largestRecordTimestamp=Some(1700128530607)) due to log retention time 20000ms breach based on the largest record timestamp in the segment (kafka.log.UnifiedLog)
+[2023-11-16 15:26:10,023] INFO [UnifiedLog partition=hello-0, dir=/tmp/kafka-logs] Incremented log start offset to 14 due to segment deletion (kafka.log.UnifiedLog)
+[2023-11-16 15:27:10,022] INFO [LocalLog partition=hello-0, dir=/tmp/kafka-logs] Deleting segment files LogSegment(baseOffset=0, size=1103, lastModifiedTime=1700128531602, largestRecordTimestamp=Some(1700128530607)) (kafka.log.LocalLog$)
+[2023-11-16 15:27:10,024] INFO Deleted log /tmp/kafka-logs/hello-0/00000000000000000000.log.deleted. (kafka.log.LogSegment)
+[2023-11-16 15:27:10,026] INFO Deleted offset index /tmp/kafka-logs/hello-0/00000000000000000000.index.deleted. (kafka.log.LogSegment)
+[2023-11-16 15:27:10,026] INFO Deleted time index /tmp/kafka-logs/hello-0/00000000000000000000.timeindex.deleted. (kafka.log.LogSegment)
+[2023-11-16 15:27:24,352] INFO [GroupCoordinator 0]: Preparing to rebalance group console-consumer-55082 in state PreparingRebalance with old generating.
+....................................................................................
+				Kafka runtime configurations
+.....................................................................................
+
+Once the topic is created,later if we want to apply dynamic configurations without server restart eg , setting new retension policy for a topic.
+
+kafka-config.sh utility can be used for dynamic configuration.
+
+entity:
+ It is object which represents topic,user, client,broker etc...
+if you want to change any configuration for entity this command can be used.
+
+entity-type =broker,topic,user
+
+Broker Level Configuration eg:
+
+//adding or editing existing broker configuration.
+
+./bin/kafka-configs.sh --bootstrap-server localhost:9092 --alter --entity-type brokers entity-default --add-config min.insync.replicas=2
+
+In java
+ KafkaConfig config=new KafkaConfig()
+ config.setProperty('min.insync.replicas')
+
+if you delete:
+
+./bin/kafka-configs.sh --bootstrap-server localhost:9092 --alter --entity-type brokers entity-default --delete-config min.insync.replicas=2
+
+
+Topics:
+./bin/kafka-configs.sh --bootstrap-server localhost:9092 
+     --alter --entity-type topics --entity-name test --add-config max.message.bytes=1000
+
+Lab:
+ Alter topic with Rention policy:
+
+Steps:
+
+1.create topic with default settings
+
+./bin/kafka-topics.sh --bootstrp-server localhost:9092 --create --topic greet
+Created topic greet.
+
+2.Describe topic.
+./bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic greet
+Topic: greet    TopicId: YkRC3sYIS0SOfbnJc-ymog PartitionCount: 1       ReplicationFactor: 1    
+Configs:
+Topic: greet    Partition: 0    Leader: 0       Replicas: 0     Isr: 0
+
+
+2.Alter topic configuration like retention policy.
+ ./bin/kafka-configs.sh --bootstrap-server localhost:9092 --alter --entity-type topics --entity-name greet --add-config retention.ms=20000
+
+3.subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic greet
+
+Topic: greet    TopicId: YkRC3sYIS0SOfbnJc-ymog PartitionCount: 1       ReplicationFactor: 1    Configs: retention.ms=20000
+        Topic: greet    Partition: 0    Leader: 0       Replicas: 0     Isr: 0
 
 
 
