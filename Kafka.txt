@@ -1712,7 +1712,7 @@ Partition:1     abc     foo
 Partition:1     78      bar
 Partition:0     45      89
 .....................................................................................
-			   Kafka Log Rentention and Cleanup Policies
+			 Kafka Log Rentention and Cleanup Policies
 ...................................................................................
 
 What is log rention?
@@ -1849,6 +1849,284 @@ Topic: greet    Partition: 0    Leader: 0       Replicas: 0     Isr: 0
 
 Topic: greet    TopicId: YkRC3sYIS0SOfbnJc-ymog PartitionCount: 1       ReplicationFactor: 1    Configs: retention.ms=20000
         Topic: greet    Partition: 0    Leader: 0       Replicas: 0     Isr: 0
+.....................................................................................
+		How to setup kafka with KRaft Mode
+.....................................................................................
+
+Initally we will see how to setup with single node.
+Lab:
+ Start Kafka in kraft mode.
+
+
+Type of Broker:
+1.controller - Broker which manages meta data,leader election,notification of to brokers
+2.broker - Data plane - Talk to producers and consumers and replicate data to followers
+
+3.Controller and broker - does both job.
+
+Node
+ A node can act as both controller and broker..
+
+In order to start kafka in kraft mode, we have special configuration files for server
+
+in zookeeper mode we start server using config/server.properties
+
+In Kraft mode, we start config/kraft/
+
+broker.properties -  only broker
+controller.properties -  only controller
+server.properties  -both controller and broker..
+
+Setup Kafka in kraft mode:
+..........................
+
+1.Generate a Cluster ID:
+
+Before generating cluter id, we need to know, how to use kafka-storage.sh utiltity.
+
+./bin/kafka-storage.sh --help
+usage: kafka-storage [-h] {info,format,random-uuid} ...
+
+The Kafka storage tool.
+
+positional arguments:
+  {info,format,random-uuid}
+    info                 Get information about the Kafka log directories on this node.
+    format               Format the Kafka log directories on this node.
+    random-uuid          Print a random UUID.
+
+optional arguments:
+  -h, --help             show this help message and exit
+
+
+CLUSTER_ID="$(bin/kafka-storage.sh random-uuid)"
+echo $CLUSTER_ID
+lTeNJUOsQOC58LHjewwfyg
+
+2.Format log directories using generated cluster id
+
+./bin/kafka-storage.sh format -t $CLUSTER_ID -c config/kraft/server.properties
+Formatting /tmp/kraft-combined-logs with metadata.version 3.6-IV2.
+
+3.Start kafka server with Kraft mode.
+
+./bin/kafka-server-start.sh config/kraft/server.properties
+
+4.create topic and test
+
+./bin/kafka-topics.sh --create --topic  order --bootstrap-server localhost:9092
+Created topic order
+
+./bin/kafka-topics.sh --describe --topic  order --bootstrap-server localhost:9092
+Topic: order    TopicId: jPNM6SA_SZGH-IbtQzpfkw PartitionCount: 1       ReplicationFactor: 1    Configs: segment.bytes=1073741824
+        Topic: order    Partition: 0    Leader: 1       Replicas: 1     Isr: 1
+
+....................................................................................
+			Replication-Multi node arch
+....................................................................................
+Multi node can be setup 
+
+1.using zookeeper
+2.using kraft.
+
+2.Using KRaft.
+..............
+
+Before setuping multi node cluster, we need to master , configuration files and its properties.
+
+Just Explore config files.
+
+Kafka/config/kraft
+
+  server.properties
+  broker.properties
+  controller.properties
+
+Note: when we setup cluster we dont need to use the same files, we can create our own files as well, these files have just template configurtaions.
+
+Here all properties file are same..
+
+We discussed already that KRaft can be configured using existing broker.
+
+You can configure any broker as "Only Controller" - We cant store topics data
+YOu can configure any broker as "Only Broker" - We can store topics data 
+You can configure any broker as "Controller and Broker" - we can store both data.
+
+server.properties => broker + controller.
+broker.properties =>Broker
+controller.properties =>controller 
+
+There is core configuration property.
+
+process.roles property
+
+
+process.roles=broker
+
+process.roles=broker,controller
+
+process.roles=controller
+
+Start Kafka in Kraft Mode:
+Note:
+ Before starting any server, we need to format log dir
+
+ ./bin/kafka-storage.sh format -t $CLUSTER_ID -c config/kraft/server.properties
+ ./bin/kafka-storage.sh format -t $CLUSTER_ID -c config/kraft/broker.properties
+ ./bin/kafka-storage.sh format -t $CLUSTER_ID -c config/kraft/controller.properties
+
+Start controller and broker in two command prompt.
+
+./bin/kafka-server-start.sh config/kraft/controller.properties
+./bin/kafka-server-start.sh config/kraft/broker.properties
+
+Start both controller and broker in one command prompt
+./bin/kafka-server-start.sh config/kraft/server.properties
+
+.....................................................................................
+
+Multi node setup:
+ 
+ You can use any combination 
+
+controller , controller, controller - three controller
+broker,broker,broker,broker,broker - 5 brokers
+
+server,server,server,server - four brokers and four controller...
+
+if you go with what ever combination, each node need to identified uniquely
+
+node.id=2
+
+server1 => node.id=1
+server2 => node.id=2
+server3==> node.id=3
+....................................................................................
+				Controller Configuration
+..................................................................................
+You can have multiple controllers in the same cluster.
+
+# The connect string for the controller quorum
+controller.quorum.voters=1@localhost:9093
+
+Here
+"1" is node=> node 1 is controller
+"localhost" => is host of the controller
+"9093" is port of the controller
+
+broker can talk to list of controllers also.
+
+Lets say i have two nodes
+
+1.node-1 and node-2
+
+node-1 is as broker
+node-2 is controller.
+
+
+node-1
+process.roles=broker
+node.id=1
+controller.quorum.voters=2@localhost:9093
+listeners=PLAINTEXT://localhost:9092
+
+node-2
+process.roles=controller
+node.id=2
+controller.quorum.voters=2@localhost:9093
+listeners=PLAINTEXT://localhost:9093
+....................................................................................
+server.properties - both controller and broker
+
+node-1
+process.roles=broker,controller
+node.id=1
+controller.quorum.voters=1@localhost:9092,2@localhost:9093
+listeners=PLAINTEXT://localhost:9092
+
+node-2
+process.roles=broker,controller
+node.id=2
+controller.quorum.voters=1@localhost:9092,2@localhost:9093
+listeners=PLAINTEXT://localhost:9093
+.....................................................................................
+				Socket server setttings
+.....................................................................................
+controller.properties:
+
+This syntax is specific to uri scheme - protocal syntax:
+ eg:
+   http://www.example.com:8080
+
+listeners = listener_name://host_name:port
+ |              |    
+variableName   protocal://hostName:port
+ 
+listeners=CONTROLLER://localhost:9093
+	     |           |        |
+          protocalName  host     port
+
+controller.listener.names=CONTROLLER
+
+eg:
+listeners=CONTROLLER://:9093
+.....................................................................................
+broker.properties
+
+listeners=PLAINTEXT://localhost:9092
+	    |           |
+          protocal    host:port
+
+# Name of listener used for communication between brokers.
+inter.broker.listener.name=PLAINTEXT
+...............................................................................
+
+server.properties
+
+listeners=PLAINTEXT://:9092,CONTROLLER://:9093
+ 	    |           |     |            |
+            protocal   port  protocal     port
+# Name of listener used for communication between brokers.
+
+inter.broker.listener.name=PLAINTEXT
+controller.listener.names=CONTROLLER
+.....................................................................................
+
+According to the above configuration, we can understand there are two protocals are used
+
+1.PLAINTEXT
+   PLAINTEXT IS protocal used by brokers for producer and consumer communication   
+2.CONTROLLER
+  CONTROLLER is protocal used by brokers and controllers for inter cluster communication
+
+listeners=PLAINTEXT://:9092,CONTROLLER://:9093
+ 
+Here,Broker is running in PLAINTEXT protocal with port of 9092 , and alos Controller is also running with CONTROLLER Protocal with port of 9093
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
