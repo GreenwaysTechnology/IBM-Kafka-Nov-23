@@ -1854,6 +1854,7 @@ Topic: greet    TopicId: YkRC3sYIS0SOfbnJc-ymog PartitionCount: 1       Replicat
 .....................................................................................
 
 Initally we will see how to setup with single node.
+
 Lab:
  Start Kafka in kraft mode.
 
@@ -2101,15 +2102,338 @@ According to the above configuration, we can understand there are two protocals 
 
 listeners=PLAINTEXT://:9092,CONTROLLER://:9093
  
-Here,Broker is running in PLAINTEXT protocal with port of 9092 , and alos Controller is also running with CONTROLLER Protocal with port of 9093
+Here,Broker is running in PLAINTEXT protocal with port of 9092 , and also Controller is also running with CONTROLLER Protocal with port of 9093
  
+Broker is running in port of 9092
+Controller is running in port of 9093
+....................................................................................
+				advertised.listeners
+....................................................................................
+advertised.listeners=PLAINTEXT:localhost:9092
+  This is configuration is necessary for the brokers who wants to be communicated by clients like Producers and consumers.
+.....................................................................................
+			 Log dirs
+.....................................................................................
+if you start multi node arch, each node must have its own log files.
+
+if you run multiple brokers and controllers in the single host, you need to specifiy the separate location.
+
+log.dirs=/tmp/server-1/kraft-combined-logs
+log.dirs=/tmp/server-2/kraft-combined-logs
+log.dirs=/tmp/server-3/kraft-combined-logs
+log.dirs=/tmp/server-4/kraft-combined-logs
+
+...................................................................................
+
+Lab:
+in ordert to setup we need three configuration files
+
+server1.properties
+server2.properties
+server3.properties
+
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0/config/kraft$ sudo cp server.properties server1.properties
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0/config/kraft$ sudo cp server.properties server2.properties
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0/config/kraft$ sudo cp server.properties server3.properties
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0/config/kraft$ ls -l
+total 48
+-rw-r--r-- 1 root root 6095 Sep 29 10:26 broker.properties
+-rw-r--r-- 1 root root 5724 Sep 29 10:26 controller.properties
+-rw-r--r-- 1 root root 6299 Sep 29 10:26 server.properties
+-rw-r--r-- 1 root root 6299 Nov 20 14:33 server1.properties
+-rw-r--r-- 1 root root 6299 Nov 20 14:33 server2.properties
+-rw-r--r-- 1 root root 6299 Nov 20 14:33 server3.properties
+
+Port Mapping:
+9092 -  broker port
+19092 - controller port
 
 
+Node1 Setup(server-1) server1.properties
+...........................................
+Note: COntroller port and broker port must be different.
+Controller port for controllers communication within cluster.
+broker port for external communication.
+
+process.roles=broker,controller
+# The node id associated with this instance's roles
+node.id=1
+
+#     listeners = PLAINTEXT://your.host.name:9092
+listeners=PLAINTEXT://:9092,CONTROLLER://:19092
+
+# The connect string for the controller quorum
+controller.quorum.voters=1@localhost:19092,2@localhost:19093,3@localhost:19094
+
+# Name of listener used for communication between brokers.
+inter.broker.listener.name=PLAINTEXT
+
+# Listener name, hostname and port the broker will advertise to clients.
+# If not set, it uses the value for "listeners".
+advertised.listeners=PLAINTEXT://localhost:9092
+
+log.dirs=/tmp/server1/kraft-combined-logs
+...................................................................................
+
+Node-2: server 2: server2.properties
+
+process.roles=broker,controller
+controller.quorum.voters=1@localhost:19092,2@localhost:19093,3@localhost:19094
+listeners=PLAINTEXT://:9093,CONTROLLER://:19093
+advertised.listeners=PLAINTEXT://localhost:9093
+log.dirs=/tmp/server-2/kraft-combined-logs
+.................................................................................
+
+Node-3:Server 3: server3.properties
+process.roles=broker,controller
+node.id=3
+controller.quorum.voters=1@localhost:19092,2@localhost:19093,3@localhost:19094
+listeners=PLAINTEXT://:9094,CONTROLLER://:19094
+advertised.listeners=PLAINTEXT://localhost:9094
+log.dirs=/tmp/server3/kraft-combined-logs
+..................................................................................
+Generate cluster id and formate all dirs
+..........................................
+./bin/kafka-storage.sh random-uuid
+hPewHnMUTA2uCi5cMqP6Rg
+
+We have format all storage directories, this is basically where we put in log.dirs 
+
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ./bin/kafka-storage.sh format -t hPewHnMUTA2uCi5cMqP6Rg -c ./config/kraft/server1.properties
+Formatting /tmp/server/kraft-combined-logs with metadata.version 3.6-IV2.
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ./bin/kafka-storage.sh format -t hPewHnMUTA2uCi5cMqP6Rg -c ./config/kraft/server2.properties
+Formatting /tmp/server-2/kraft-combined-logs with metadata.version 3.6-IV2.
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ./bin/kafka-storage.sh format -t hPewHnMUTA2uCi5cMqP6Rg -c ./config/kraft/server3.properties
+Formatting /tmp/server3/kraft-combined-logs with metadata.version 3.6-IV2.
+s
+
+We need to allocate max memory, in order to work cluster properly.
+
+export KAFKA_HEAP_OPTS="-Xmx200M -Xms100M"
+
+before starting server : we have to run this.
+
+./bin/kafka-server-start.sh ./config/kraft/server1.properties
+./bin/kafka-server-start.sh ./config/kraft/server2.properties
+./bin/kafka-server-start.sh ./config/kraft/server3.properties
+
+Test all kafka servers are running.
+
+jcmd | grep kafka
+17248 kafka.Kafka ./config/kraft/server2.properties
+18248 kafka.Kafka ./config/kraft/server1.properties
+17753 kafka.Kafka ./config/kraft/server3.properties
+....................................................................................
+			Create topic and replicate them
+....................................................................................
+ ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic todos --partitions 2 --replication-factor 3
+Created topic todos.
+
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic todos
+Topic: todos    TopicId: 9nml7MiDTEKdRvh2pFRI-w PartitionCount: 2       ReplicationFactor: 3    Configs: segment.bytes=1073741824
+        Topic: todos    Partition: 0    Leader: 1       Replicas: 1,2,3 Isr: 1,2,3
+        Topic: todos    Partition: 1    Leader: 2       Replicas: 2,3,1 Isr: 2,3,1
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ./bin/kafka-topics.sh --bootstrap-server localhost:9093 --describe --topic todos
+Topic: todos    TopicId: 9nml7MiDTEKdRvh2pFRI-w PartitionCount: 2       ReplicationFactor: 3    Configs: segment.bytes=1073741824
+        Topic: todos    Partition: 0    Leader: 1       Replicas: 1,2,3 Isr: 1,2,3
+        Topic: todos    Partition: 1    Leader: 2       Replicas: 2,3,1 Isr: 2,3,1
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ./bin/kafka-topics.sh --bootstrap-server localhost:9094 --describe --topic todos
+Topic: todos    TopicId: 9nml7MiDTEKdRvh2pFRI-w PartitionCount: 2       ReplicationFactor: 3    Configs: segment.bytes=1073741824
+        Topic: todos    Partition: 0    Leader: 1       Replicas: 1,2,3 Isr: 1,2,3
+        Topic: todos    Partition: 1    Leader: 2       Replicas: 2,3,1 Isr: 2,3,1
+
+Here partition:0 Leader:1
+
+ for 0th partition leader is node 1
+ for 1st parttion leader is node 2
+
+Just stop any leader node and describe, again restart failed node...
 
 
+Just producer and consume message:
+./bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic todos
+./bin/kafka-console-consumer.sh --bootstrap-server localhost:9094 --topic todos
+.....................................................................................
+			   Kafka Connect
+.....................................................................................
+Kafka provides two layers
+
+1.Storage Layer
+  How to store events
+  topic partition-segemation
+  Replication
+  
+2.Compute Layer
+  How to process data from kafka storage.
+
+.....................................................................................
+Kafka Connect is also producers and consumers only but  we dont need to write any code to transfer data from source to desitnation via kakfka.
+
+Kafka is simply a tool for scalably and reliably streaming data between kafka and other systems.
+
+It makes it simple to quickly define connectors that move large data sets "in and out " of Kafka.
+Kafka Connect can ingest entire databases or collect metrics from all your application servers into kafka topics.
+
+Connect Core concepts:
+1.Connect
+   It is server,which performs read and write data from the the data stores into kafka storage layer called broker.
+
+2.Connector:
+  It is java lib/jar file which provides high level abstraction that cares of data transfers like jdbc drivers.
+
+3.Task:
+  The implementation of how data is compied to or from kafka.
+
+4.Workers
+  The workers or connect are running process that execute connectors and tasks.
+
+5.Converters
+    Data seralization and Deseralization process, that is done by using kafka schema   registry.
+
+Types of connectors:
+1.source connector
+   Collect data and send into kafka topic
+2.Sink connectors
+   Collect data from the kafka topic and send to other systems.
+
+Implementation:
+ Kafka communiunity provides 1000 of connectors for different type of data need.
+
+https://www.confluent.io/hub/
+
+Note: all connectors are not free, some are open source, some are paid one....
+.....................................................................................
+				Connectors Implmementations
+.....................................................................................
+
+We need two servers:
+
+1.storage server - kafka server 
+  ->zoo keeper with kafka
+  ->kraft with kafka
+
+2.connector server
+  -> standalone mode - single server...
+  -> distributed mode - cluster mode, like kafka cluster, you can setup connect cluster
+
+configuration file for connect server:
+
+config/connect-standalone.properties
+
+Basic configuration:
+bootstrap.servers=localhost:9092
+  This connect server is going to talk to which kafka broker/brokers.
 
 
+key.converter=org.apache.kafka.connect.json.JsonConverter
+value.converter=org.apache.kafka.connect.json.JsonConverter
 
+	The converters specify the format of data in Kafka and how to translate it into Connect data. 
+	Every Connect user will need to configure these based on the format they want their data in when loaded from or stored into Kafka
+
+key.converter.schemas.enable=true
+value.converter.schemas.enable=true
+.....................................................................................
+
+Plugins(Connectors):
+ Plugin is java jar file which is used to connect datasource with kafka connect.
+
+config/connect-standalone.properties
+
+# plugin.path=/usr/local/share/java,/usr/local/share/kafka/plugins,/opt/connectors,
+#plugin.path=
+
+list of jar files to be loaded by connect server
+
+plugin.path=libs
+.....................................................................................
+
+Demo:
+ How to transfer data from the text file into kafka topic and from kafka topic into another text file.
+
+Apache kafka distribution provides basic connectors called file processing connector
+you dont need to install from connector hub.
+
+lib/connect-file-3.6.0.jar
+  To data from the disk file and transfer data into kafka topic.
+
+Note :
+ if any connector provide configuration files,that has to be passed as parameter.
+
+By default, file connector , apache kafka distribution provides the configuration
+
+config/connect-file-source.properties - from file into kafka topic
+config/connect-file-sink.properties - from kafka topic to file
+
+
+file-source-properties:
+
+name=local-file-source
+connector.class=FileStreamSource
+tasks.max=1
+file=test.txt
+topic=connect-test
+
+connect-file-sink.properties
+
+name=local-file-sink
+connector.class=FileStreamSink
+tasks.max=1
+file=test.sink.txt
+topics=connect-test
+
+
+steps:
+1.create test.txt file and keep some data.
+echo -e "hello" > test.txt
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ls -l
+total 80
+-rw-r--r-- 1 subu subu 14973 Sep 29 10:26 LICENSE
+-rw-r--r-- 1 subu subu 28184 Sep 29 10:26 NOTICE
+drwxr-xr-x 3 subu subu  4096 Sep 29 10:30 bin
+drwxr-xr-x 3 subu subu  4096 Sep 29 10:30 config
+drwxr-xr-x 2 subu subu 12288 Nov 20 14:54 libs
+drwxr-xr-x 2 subu subu  4096 Sep 29 10:30 licenses
+drwxr-xr-x 2 subu subu  4096 Nov 20 16:13 logs
+drwxr-xr-x 2 subu subu  4096 Sep 29 10:30 site-docs
+-rw-r--r-- 1 subu subu     6 Nov 20 17:02 test.txt
+
+ File would have been created in the root folder.
+
+2.plugin.path config in config/connect-standalone.properties
+plugin.path=libs/connect-file-3.6.0.jar
+
+3.Start server broker with zookeeper or kraft.
+Broker with Kraft:
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ./bin/kafka-storage.sh random-uuid
+MmOpT2aPRSiPmj71e3hbfw
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ./bin/kafka-storage.sh format -t MmOpT2aPRSiPmj71e3hbfw -c ./config/kraft/server.properties
+Formatting /tmp/kraft-combined-logs with metadata.version 3.6-IV2.
+subu@LAPTOP-R2TGGFDL:~/kafka_2.12-3.6.0$ ./bin/kafka-server-start.sh config/kraft/server.properties
+
+4.Start connect(Connect Server)
+./bin/connect-standalone.sh config/connect-standalone.properties config/connect-file-source.properties config/connect-file-sink.properties
+
+
+5.Consume events from the topic
+
+./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic connect-test --from-beginning
+{"schema":{"type":"string","optional":false},"payload":"hello"}
+{"schema":{"type":"string","optional":false},"payload":"how are you"}
+{"schema":{"type":"string","optional":false},"payload":"simply data transfer works"}
+
+
+6.Run another command prompt , write message into file , observe the consumer.
+
+echo simply data transfer works  >> test.txt
+
+7.Run antother command prompt, read message from the topic.
+
+$more test.sink.txt
+hello
+how are you
+simply data transfer works
+.....................................................................................
 
 
 
