@@ -2433,57 +2433,624 @@ $more test.sink.txt
 hello
 how are you
 simply data transfer works
+...................................................................................
+			  Confluent Platform
 .....................................................................................
 
+Confluent is basically a company who gives enterprise "Kafka Platform",Confluent kafka.
+
+Confluent kafka is abstraction on the top of apache kafka.
+
+Confluent Kafka provides various production ready features.
+
+There are two major deployments
+ -Cloud
+ -Self Managed
+
+Self managed:
+
+Choose An Installation Type
+   Install Confluent Platform on a single local machine by using ZIP or TAR archives or Docker images.
+
+Local
+  -zip - windows
+  -tar -  linux
+  -docker 
+Distributed
+  -Kubernets
+  -Ansible Playbooks
 
 
+Step:
+
+https://www.confluent.io/installation/
+
+curl -O https://packages.confluent.io/archive/7.4/confluent-7.4.2.tar.gz
+
+tar xzf confluent-7.4.2.tar.gz
 
 
+Folder	Description
+/bin/	Driver scripts for starting and stopping services
+/etc/	Configuration files
+/lib/	Systemd services
+/libexec/	Multi-platform CLI binaries
+/share/	Jars and licenses
+/src/	Source files that require a platform-dependent build
+
+Optionally configure CONFLUENT_HOME
+
+export CONFLUENT_HOME=<The directory where Confluent is installed>
+eg:
+export CONFLUENT_HOME=/home/subu/confluent-7.5.2
+
+export PATH=$PATH:$CONFLUENT_HOME/bin
+
+confluent --help
+Manage your Confluent Cloud or Confluent Platform. Log in to see all available commands.
+
+Usage:
+  confluent [command]
+
+Available Commands:
+  cloud-signup    Sign up for Confluent Cloud.
+  completion      Print shell completion code.
+  configuration   Configure the Confluent CLI.
+  context         Manage CLI configuration contexts.
+  help            Help about any command
+  kafka           Manage Apache Kafka.
+  local           Manage a local Confluent Platform development environment.
+  login           Log in to Confluent Cloud or Confluent Platform.
+  logout          Log out of Confluent Cloud or Confluent Platform.
+  plugin          Manage Confluent plugins.
+  prompt          Add Confluent CLI context to your terminal prompt.
+  secret          Manage secrets for Confluent Platform.
+  shell           Start an interactive shell.
+  update          Update the Confluent CLI.
+  version         Show version of the Confluent CLI.
+
+Flags:
+      --version         Show version of the Confluent CLI.
+  -h, --help            Show help for this command.
+      --unsafe-trace    Equivalent to -vvvv, but also log HTTP requests and responses which might contain plaintext secrets.
+  -v, --verbose count   Increase verbosity (-v for warn, -vv for info, -vvv for debug, -vvvv for trace).
+
+Use "confluent [command] --help" for more information about a command.
 
 
+Confluent platform is used in two mode
+
+1.local mode - dev,testing
+2.prod mode -production mode
+
+if you are going to use confluent local,the command starts like below
+
+confluent local --help
+Use the "confluent local" commands to try out Confluent Platform by running a single-node instance locally on your machine. Keep in mind, these commands require Java to run.
+
+Usage:
+  confluent local [command]
+
+Available Commands:
+  current     Get the path of the current Confluent run.
+  destroy     Delete the data and logs for the current Confluent run.
+  services    Manage Confluent Platform services.
+  version     Print the Confluent Platform version.
+
+Global Flags:
+  -h, --help            Show help for this command.
+      --unsafe-trace    Equivalent to -vvvv, but also log HTTP requests and responses which may contain plaintext secrets.
+  -v, --verbose count   Increase verbosity (-v for warn, -vv for info, -vvv for debug, -vvvv for trace).
+
+Use "confluent local [command] --help" for more information about a command.
 
 
+ confluent local services --help
+Manage Confluent Platform services.
+
+Usage:
+  confluent local services [command]
+
+Available Commands:
+  connect         Manage Connect.
+  control-center  Manage Control Center.
+  kafka           Manage Apache Kafka®.
+  kafka-rest      Manage Kafka REST.
+  ksql-server     Manage ksqlDB Server.
+  list            List all Confluent Platform services.
+  schema-registry Manage Schema Registry.
+  start           Start all Confluent Platform services.
+  status          Check the status of all Confluent Platform services.
+  stop            Stop all Confluent Platform services.
+  top             View resource usage for all Confluent Platform services.
+  zookeeper       Manage Apache ZooKeeper™.
+
+Global Flags:
+  -h, --help            Show help for this command.
+      --unsafe-trace    Equivalent to -vvvv, but also log HTTP requests and responses which might contain plaintext secrets.
+  -v, --verbose count   Increase verbosity (-v for warn, -vv for info, -vvv for debug, -vvvv for trace).
+
+Use "confluent local services [command] --help" for more information about a command.
+
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+Services :
+  To start zookeeper,kafka broker,........
+
+./confluent local services --help
+Manage Confluent Platform services.
+
+Usage:
+  confluent local services [command]
+
+Available Commands:
+  connect         Manage Connect.
+  control-center  Manage Control Center.
+  kafka           Manage Apache Kafka®.
+  kafka-rest      Manage Kafka REST.
+  ksql-server     Manage ksqlDB Server.
+  list            List all Confluent Platform services.
+  schema-registry Manage Schema Registry.
+  start           Start all Confluent Platform services.
+  status          Check the status of all Confluent Platform services.
+  stop            Stop all Confluent Platform services.
+  top             View resource usage for all Confluent Platform services.
+  zookeeper       Manage Apache ZooKeeper™.
+
+How to start Confluent Platform services?
+
+./confluent local services start
+The local commands are intended for a single-node development environment only, NOT for production usage. See more: https://docs.confluent.io/current/cli/index.html
+As of Confluent Platform 8.0, Java 8 is no longer supported.
+
+Using CONFLUENT_CURRENT: /tmp/confluent.629193
+Starting ZooKeeper
+ZooKeeper is [UP]
+Starting Kafka
+Kafka is [UP]
+Starting Schema Registry
+Schema Registry is [UP]
+Starting Kafka REST
+Kafka REST is [UP]
+Starting Connect
+Connect is [UP]
+Starting ksqlDB Server
+ksqlDB Server is [UP]
+Starting Control Center
+Control Center is [UP]
+.....................................................................................
+.....................................................................................
+How to use confluent platform?
+
+Like :
+ How to interact with kafka broker for create,publish,consume messages
+
+There are two ways
+
+1.Using gui tools
+http://localhost:9021/clusters
+2.Using cli tools
+.....................................................................................
+			 Confluent Connect
+......................................................................................
+JDBC Connectors:
+1.JDBC Source Connector
+   Database to Kafka topic
+2.JDBC Sink connector
+   Kafka topic to Database.
+
+What is jdbc connector?
+  Jdbc connector is just jar file
+
+In order to install jdbc connector into confluent platform we have two ways
+
+1.manuall installation
+2.via confulent hub client cli tool
+
+Req:
+ 1.jdbc connector
+ 2.What database you are going to connect for mysql or postgresql,mssql,monogodb   etc..
+   you need driver jar file
+
+HUB URL:
+https://www.confluent.io/hub/
+
+JDBC Connector (Source and Sink)
+
+confluent-hub install confluentinc/kafka-connect-jdbc:10.7.4
+
+ confluent-hub install confluentinc/kafka-connect-jdbc:10.7.4
+The component can be installed in any of the following Confluent Platform installations:
+  1. /home/subu/confluent-7.5.2 (based on $CONFLUENT_HOME)
+  2. /home/subu/confluent-7.5.2 (where this tool is installed)
+Choose one of these to continue the installation (1-2): 1
+Do you want to install this into /home/subu/confluent-7.5.2/share/confluent-hub-components? (yN) y
 
 
+Component's license:
+Confluent Community License
+https://www.confluent.io/confluent-community-license
+I agree to the software license agreement (yN) y
+
+Downloading component Kafka Connect JDBC 10.7.4, provided by Confluent, Inc. from Confluent Hub and installing into /home/subu/confluent-7.5.2/share/confluent-hub-components
+Detected Worker's configs:
+  1. Standard: /home/subu/confluent-7.5.2/etc/kafka/connect-distributed.properties
+  2. Standard: /home/subu/confluent-7.5.2/etc/kafka/connect-standalone.properties
+  3. Standard: /home/subu/confluent-7.5.2/etc/schema-registry/connect-avro-distributed.properties
+  4. Standard: /home/subu/confluent-7.5.2/etc/schema-registry/connect-avro-standalone.properties
+  5. Based on CONFLUENT_CURRENT: /tmp/confluent.340776/connect/connect.properties
+  6. Used by Connect process with PID 14635: /tmp/confluent.340776/connect/connect.properties
+Do you want to update all detected configs? (yN) y
+
+Adding installation directory to plugin path in the following files:
+  /home/subu/confluent-7.5.2/etc/kafka/connect-distributed.properties
+  /home/subu/confluent-7.5.2/etc/kafka/connect-standalone.properties
+  /home/subu/confluent-7.5.2/etc/schema-registry/connect-avro-distributed.properties
+  /home/subu/confluent-7.5.2/etc/schema-registry/connect-avro-standalone.properties
+  /tmp/confluent.340776/connect/connect.properties
+  /tmp/confluent.340776/connect/connect.properties
+
+Completed.
+
+...................................................................................
+
+make sure that kafka-connect-jdbc-10.7.4.jar file is available 
+
+home\subu\confluent-7.4.2\share\confluent-hub-components\confluentinc-kafka-connect-jdbc\lib
+
+copy jdbc driver files also inthe same location.
+
+home\subu\confluent-7.4.1\share\confluent-hub-components\confluentinc-kafka-connect-jdbc\lib
+
+mysql-connector-java-8.0.16.jar
+
+...................................................................................
+
+After installing make sure /etc/kafka/server.properties files are having the below configuration
+
+listeners=PLAINTEXT://localhost:9092
+
+# Listener name, hostname and port the broker will advertise to clients.
+# If not set, it uses the value for "listeners".
+advertised.listeners=PLAINTEXT://localhost:9092
+....................................................................................
+
+..................................................................................
+
+Make sure that etc/kafka/connect-standalone.properties
+
+plugin.path=/home/subu/confluent-7.5.2/share/confluent-hub-components
+
+the above configuration is mapped.
+..................................................................................
+
+..................................................................................
+
+We have to start database: Mysql.
+
+Start mysql server:
+ This mysql server contains ready made database called inventory.
+
+docker run -it --rm --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=debezium -e MYSQL_USER=mysqluser -e MYSQL_PASSWORD=mysqlpw quay.io/debezium/example-mysql:2.3
+
+start Mysql client utilty in powershell
+
+ docker run -it --rm --name mysqlterm --link mysql --rm mysql:8.0 sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uroot -p"$MYSQL_ENV_MYSQL_ROOT_PASSWORD"'
 
 
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| inventory          |
+| mysql              |
+| performance_schema |
+| sys                |
++--------------------+
+5 rows in set (0.00 sec)
+
+Change database
+
+mysql> use inventory
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+
+mysql> show tables;
++---------------------+
+| Tables_in_inventory |
++---------------------+
+| addresses           |
+| customers           |
+| geom                |
+| orders              |
+| products            |
+| products_on_hand    |
++---------------------+
+6 rows in set (0.00 sec)
+mysql> select *from orders;
++--------------+------------+-----------+----------+------------+
+| order_number | order_date | purchaser | quantity | product_id |
++--------------+------------+-----------+----------+------------+
+|        10001 | 2016-01-16 |      1001 |        1 |        102 |
+|        10002 | 2016-01-17 |      1002 |        2 |        105 |
+|        10003 | 2016-02-19 |      1002 |        2 |        106 |
+|        10004 | 2016-02-21 |      1003 |        1 |        107 |
++--------------+------------+-----------+----------+------------+
+4 rows in set (0.00 sec)
+
+mysql> select *from customers;
++------+------------+-----------+-----------------------+
+| id   | first_name | last_name | email                 |
++------+------------+-----------+-----------------------+
+| 1001 | Sally      | Thomas    | sally.thomas@acme.com |
+| 1002 | George     | Bailey    | gbailey@foobar.com    |
+| 1003 | Edward     | Walker    | ed@walker.com         |
+| 1004 | Anne       | Kretchmar | annek@noanswer.org    |
++------+------------+-----------+-----------------------+
+4 rows in set (0.00 sec)
+
+................
 
 
+Start/Restart all confluent services
+.....................................................................................
+
+We have done so far
+
+1.we have installed connector jars and jdbc drivers
+2.we have started database -mysql
 
 
+Now we need to start pushing data from mysql database to kafka.
+
+We need to push "configuration" to connect service(server)
+
+ Do you remember we have used "connect-file-source.properties" which configuration.
+
+instead of having separate configuration file, we can push to connect server via 
+GUI tool or curl utility. it should be HTTP post call.
 
 
+instead of having separate configuration file, we can push to connect server via 
+GUI tool or curl utility. it should be HTTP post call.
+
+Basic connector configuration:
+{
+  "name": "JdbcSourceConnectorConnector_0",
+  "config": {
+    "name": "JdbcSourceConnectorConnector_0",
+    "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+    "connection.url": "jdbc:mysql://127.0.0.1:3306/inventory?verifyServerCertificate=false&useSSL=true&requireSSL=true",
+    "connection.user": "mysqluser",
+    "connection.password": "mysqlpw",
+    "mode": "bulk"
+  }
+}
+
+How to push the above configuration to connect server?
+
+http://localhost:9021/clusters/I3jfof3mQDCHEkX8SZMCww/management/connect/connect-default/connectors
+
+Go to connect option
+
+ Select "connect-defalut"
+	YOu can find connectors
+   
+ click--->   JDBCSourceconnector --> Add configuration and lanuch,, 
+
+You can see now the data started moving from database to kafka topics.
+.....................................................................................
+			 CDC -Change Data Capture
+....................................................................................
+What is CDC?
+Change data capture (CDC) refers to the process of identifying and capturing changes made to data in a database and then delivering those changes in real-time to a downstream process or system.
+
+CDC is technology which monitors database's underlying log files if any changes happen, those changes are condisered as event, those events are converted into kafka records, read by kafka connector and sent to kafka storage...
+
+How to  implement CDC?
+
+There is lot of platforms and tools available CDC, there is one open source platform
+called "Debezium".
+
+if you want to build microservices , with "event driven design patterns" -  saga,transactionaloutbox , can be implemented with Debezium.
+
+What is Debezium?
+  Debezium kafka platform, which is built on the top of kakfa core....
+ Who provides CDC implementation for most of the databases.
+
+	Debezium is an open source distributed platform for change data capture. Start it up, point it at your databases, and your apps can start responding to all of the inserts, updates, and deletes that other apps commit to your databases. Debezium is durable and fast, so your apps can respond quickly and never miss an event, even when things go wrong.
+
+Docker setup:
+2.you can use docker compose or indiduval docker commands.
+
+Start Zookeeper
+
+Start Kafka
+
+Start a MySQL database
+
+Start a MySQL command line client
+
+Start Kafka Connect
+..
+
+This tutorial uses Docker and the Debezium container images to run the ZooKeeper, Kafka, Debezium, and MySQL services. 
+
+$ docker run -it --rm --name zookeeper -p 2181:2181 -p 2888:2888 -p 3888:3888 quay.io/debezium/zookeeper:2.3
+
+$ docker run -it --rm --name kafka -p 9092:9092 --link zookeeper:zookeeper quay.io/debezium/kafka:2.3
+
+$ docker run -it --rm --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=debezium -e MYSQL_USER=mysqluser -e MYSQL_PASSWORD=mysqlpw quay.io/debezium/example-mysql:2.3
+
+$ docker run -it --rm --name mysqlterm --link mysql --rm mysql:8.0 sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uroot -p"$MYSQL_ENV_MYSQL_ROOT_PASSWORD"'
+
+docker run -it --rm --name connect -p 8083:8083 -e GROUP_ID=1 -e CONFIG_STORAGE_TOPIC=my_connect_configs -e OFFSET_STORAGE_TOPIC=my_connect_offsets -e STATUS_STORAGE_TOPIC=my_connect_statuses --link kafka:kafka --link mysql:mysql quay.io/debezium/connect:2.3
 
 
+Deploying the MySQL connector
 
+After starting the Debezium and MySQL services, you are ready to deploy the Debezium MySQL connector so that it can start monitoring the sample MySQL database (inventory).
 
+At this point, you are running the Debezium services, a MySQL database server with a sample inventory database, and the MySQL command line client that is connected to the database. To deploy the MySQL connector, you must:
 
+Register the MySQL connector to monitor the inventory database
 
+After the connector is registered, it will start monitoring the database server’s binlog and it will generate change events for each row that changes.
 
+Watch the MySQL connector start
 
+Reviewing the Kafka Connect log output as the connector starts helps you to better understand each task it must complete before it can start monitoring the binlog.
 
+What is binlog?
+  binary log
 
+The binary log contains “events” that describe database changes such as table creation operations or changes to table data. It also contains events for statements that potentially could have made changes (for example, a DELETE which matched no rows), unless row-based logging is used.
 
+Note:
+In a production environment, you would typically either use the Kafka tools to manually create the necessary topics, including specifying the number of replicas, or you’d use the Kafka Connect mechanism for customizing the settings of auto-created topics. However, for this tutorial, Kafka is configured to automatically create the topics with just one replica.
 
+Procedure:
+Review the configuration of the Debezium MySQL connector that you will register.
 
+Before registering the connector, you should be familiar with its configuration. In the next step, you will register the following connector:
 
+{
+  "name": "inventory-connector",  
+  "config": {  
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",  
+    "database.hostname": "mysql",  
+    "database.port": "3306",
+    "database.user": "debezium",
+    "database.password": "dbz",
+    "database.server.id": "184054",  
+    "topic.prefix": "dbserver1",  
+    "database.include.list": "inventory",  
+    "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",  
+    "schema.history.internal.kafka.topic": "schema-changes.inventory"  
+  }
+}
 
+2.Open a new terminal, and use the curl command to register the Debezium MySQL connector.
 
+Note: use git bash 
 
+$ curl -i -X POST -H "Accept:application/json" -H "Content-Type:application/json" localhost:8083/connectors/ -d '{ "name": "inventory-connector", "config": { "connector.class": "io.debezium.connector.mysql.MySqlConnector", "tasks.max": "1", "database.hostname": "mysql", "database.port": "3306", "database.user": "debezium", "database.password": "dbz", "database.server.id": "184054", "topic.prefix": "dbserver1", "database.include.list": "inventory", "schema.history.internal.kafka.bootstrap.servers": "kafka:9092", "schema.history.internal.kafka.topic": "schemahistory.inventory" } }'
 
+After installing :
+Test
+http://localhost:8083/connectors/
 
+Response:
+[
+"inventory-connector"
+]
 
+http://localhost:8083/connectors/inventory-connector
 
+{
+name: "inventory-connector",
+config: {
+connector.class: "io.debezium.connector.mysql.MySqlConnector",
+database.user: "debezium",
+topic.prefix: "dbserver1",
+schema.history.internal.kafka.topic: "schemahistory.inventory",
+database.server.id: "184054",
+tasks.max: "1",
+database.hostname: "mysql",
+database.password: "dbz",
+name: "inventory-connector",
+schema.history.internal.kafka.bootstrap.servers: "kafka:9092",
+database.port: "3306",
+database.include.list: "inventory"
+},
+tasks: [
+{
+connector: "inventory-connector",
+task: 0
+}
+],
+type: "source"
+}
 
+Viewing change events
+After deploying the Debezium MySQL connector, it starts monitoring the inventory database for data change events.
 
+Viewing a create event
 
+Updating the database and viewing the update event
 
+Deleting a record in the database and viewing the delete event
 
+Restarting Kafka Connect and changing the database
 
+..
 
+Watch inside docker terminal changes
+in the topic
+./kafka-topics.sh --list --bootstrap-server 172.17.0.1:9092
+__consumer_offsets
+dbserver1
+dbserver1.inventory.addresses
+dbserver1.inventory.customers
+dbserver1.inventory.geom
+dbserver1.inventory.orders
+dbserver1.inventory.products
+dbserver1.inventory.products_on_hand
+my_connect_configs
+my_connect_offsets
+my_connect_statuses
+schemahistory.inventory
 
+ ./kafka-topics.sh --topic  dbserver1.inventory.customers --describe --bootstrap-server 172.17.0.1:9092
+Topic: dbserver1.inventory.customers    TopicId: G6hEi6d5ThKpKwjGxl-Ujg PartitionCount: 1       ReplicationFactor: 1    Configs: 
+        Topic: dbserver1.inventory.customers    Partition: 0    Leader: 1       Replicas: 1     Isr: 1
 
+./kafka-console-consumer.sh  --bootstrap-server 172.17.0.1:9092 --topic dbserver1.inventory.customers --from-beginning
 
+Watching:
+Updating the databases and viewing the update event.
+
+h-5.2$ ls
+LICENSE  NOTICE  bin  config  config.orig  data  libs  licenses  logs
+sh-5.2$ cd bin
+sh-5.2$ ls
+connect-distributed.sh        kafka-console-producer.sh    kafka-leader-election.sh       kafka-run-class.sh                  kafka-verifiable-producer.sh
+connect-mirror-maker.sh       kafka-consumer-groups.sh     kafka-log-dirs.sh              kafka-server-start.sh               trogdor.sh
+connect-standalone.sh         kafka-consumer-perf-test.sh  kafka-metadata-quorum.sh       kafka-server-stop.sh                windows
+kafka-acls.sh                 kafka-delegation-tokens.sh   kafka-metadata-shell.sh        kafka-storage.sh                    zookeeper-security-migration.sh
+kafka-broker-api-versions.sh  kafka-delete-records.sh      kafka-mirror-maker.sh          kafka-streams-application-reset.sh  zookeeper-server-start.sh
+kafka-cluster.sh              kafka-dump-log.sh            kafka-producer-perf-test.sh    kafka-topics.sh                     zookeeper-server-stop.sh
+kafka-configs.sh              kafka-features.sh            kafka-reassign-partitions.sh   kafka-transactions.sh               zookeeper-shell.sh
+kafka-console-consumer.sh     kafka-get-offsets.sh         kafka-replica-verification.sh  kafka-verifiable-consumer.sh
+sh-5.2$ kafka-topics.sh --list --bootstrap-server 172.17.0.1:9092
+sh: kafka-topics.sh: command not found
+sh-5.2$ ./kafka-topics.sh --list --bootstrap-server 172.17.0.1:9092
+__consumer_offsets
+dbserver1
+dbserver1.inventory.addresses
+dbserver1.inventory.customers
+dbserver1.inventory.geom
+dbserver1.inventory.orders
+dbserver1.inventory.products
+dbserver1.inventory.products_on_hand
+my_connect_configs
+my_connect_offsets
+my_connect_statuses
+schemahistory.inventory
+sh-5.2$ 
+
+Clean up:
+docker stop mysqlterm watcher connect mysql kafka zookeeper
+mysqlterm
+watcher
+connect
+mysql
+kafka
+zookeeper
 
 
 
