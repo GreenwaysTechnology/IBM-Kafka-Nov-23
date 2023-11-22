@@ -3051,6 +3051,303 @@ connect
 mysql
 kafka
 zookeeper
+.....................................................................................
+			  Kafka Streams and KSQL DB
+.....................................................................................
+
+Streaming:
+  Flow of data, while moving data from one place to another place, we can process those data, which is called stream processing.
+
+  Kafka is sending data as events, which is flow of data, which is called kafka streams.
+
+  In the begining of kafka there was no way to process  events while streaming.
+
+  Later of Kafka releases who introduced a concept or api or tool called "Kafka Streaming"
+
+  Kafka streaming abstraction is java apis which can be used to process on going kafka events and process usefull reports.
+
+
+stream - x=10, x=20 x=30 =>  topic x:10,x:20,x:30
+Compactation: deleting duplicate entries
+table    x=10, x=20 x=30 =>  topic x=30
+.....................................................................................
+
+KSQL Db Setup:
+
+docker-compose-ksqldb.yml
+---
+version: '2'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  broker:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  ksqldb-server:
+    image: confluentinc/ksqldb-server:0.29.0
+    hostname: ksqldb-server
+    container_name: ksqldb-server
+    depends_on:
+      - broker
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      KSQL_BOOTSTRAP_SERVERS: broker:9092
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
+
+  ksqldb-cli:
+    image: confluentinc/ksqldb-cli:0.29.0
+    container_name: ksqldb-cli
+    depends_on:
+      - broker
+      - ksqldb-server
+    entrypoint: /bin/sh
+    tty: true
+
+...................................................................................
+
+Lanuch KQLDB Cli:
+.................
+
+docker exec -it ksqldb-cli ksql http://ksqldb-server:8088
+
+
+Stream Processing:
+
+1.create stream and bind with topic.
+
+ if topic is not created already, you can create topic via stream also.
+
+ksql> create stream todos_stream(title VARCHAR,status VARCHAR) WITH (KAFKA_TOPIC='todos',VALUE_FORMAT='DELIMITED',PARTITIONS=2)
+>;
+
+ Message
+----------------
+ Stream created
+----------------
+ksql> list streams
+>;
+
+ Stream Name         | Kafka Topic                 | Key Format | Value Format | Windowed
+------------------------------------------------------------------------------------------
+ KSQL_PROCESSING_LOG | default_ksql_processing_log | KAFKA      | JSON         | false
+ TODOS_STREAM        | todos                       | KAFKA      | DELIMITED    | false
+------------------------------------------------------------------------------------------
+ksql> describe todos_stream;
+
+Name                 : TODOS_STREAM
+ Field  | Type
+--------------------------
+ TITLE  | VARCHAR(STRING)
+ STATUS | VARCHAR(STRING)
+--------------------------
+For runtime statistics and query details run: DESCRIBE <Stream,Table> EXTENDED;
+
+
+You can insert data into stream, it is availble inside kafka topic.
+
+You can insert data into topic, event is available inside kafka stream.
+
+ksql> INSERT INTO todos_stream(title,status) VALUES('learn kafka','onprogress');
+ksql> INSERT INTO todos_stream(title,status) VALUES('learn streams','onprogress');
+
+eg:
+ kafka-console-consumer --bootstrap-server localhost:9092 --topic todos --from-beginning
+learn kafka,onprogress
+learn streams,onprogress
+
+
+How to select data?
+
+PULL QUERY:
+ executes query,get data, and terminate.
+
+ SELECT title,status from todos_stream;
+
+PUSH QUERY:
+ executes query , get data , wont terminate.
+
+ SELECT title,status from todos_stream EMIT CHANGES;
++---------------------------------------------------------+---------------------------------------------------------+
+|TITLE                                                    |STATUS                                                   |
++---------------------------------------------------------+---------------------------------------------------------+
+|learn java                                               |done                                                     |
+
+[appuser@broker ~]$ kafka-console-producer --bootstrap-server localhost:9092 --topic todos
+>learn java,done.
+
+Here you dont see the old/histrical data.
+
+if you want histrical and live data both.
+ SET 'auto.offset.reset'='earliest'
+>;Query terminated
+Successfully changed local property 'auto.offset.reset' to 'earliest'. Use the UNSET command to revert your change.
+ksql> SELECT title,status from todos_stream EMIT CHANGES;
++---------------------------------------------------------+---------------------------------------------------------+
+|TITLE                                                    |STATUS                                                   |
++---------------------------------------------------------+---------------------------------------------------------+
+|learn kafka                                              |onprogress                                               |
+|learn streams                                            |onprogress                                               |
+|learn java                                               |done                                                     |
+...................................................................................
+
+Create stream from stream:
+..........................
+CREATE STREAM TODOS_UPPERSTREAM as SELECT UCASE(title) as TODOTITLE from todos_stream EMIT CHANGES;
+
+ Message
+------------------------------------------------
+ Created query with ID CSAS_TODOS_UPPERSTREAM_3
+------------------------------------------------
+ksql> list streams;
+
+ Stream Name         | Kafka Topic                 | Key Format | Value Format | Windowed
+------------------------------------------------------------------------------------------
+ KSQL_PROCESSING_LOG | default_ksql_processing_log | KAFKA      | JSON         | false
+ TODOS_STREAM        | todos                       | KAFKA      | DELIMITED    | false
+ TODOS_UPPERSTREAM   | TODOS_UPPERSTREAM           | KAFKA      | DELIMITED    | false
+------------------------------------------------------------------------------------------
+ksql> DESCRIBE todos_upperstream;
+
+Name                 : TODOS_UPPERSTREAM
+ Field     | Type
+-----------------------------
+ TODOTITLE | VARCHAR(STRING)
+-----------------------------
+For runtime statistics and query details run: DESCRIBE <Stream,Table> EXTENDED;
+ksql> SELECT TODOTITLE from todos_upperstream;
++--------------------------------------------------------------------------------------------------------------------+
+|TODOTITLE                                                                                                           |
++--------------------------------------------------------------------------------------------------------------------+
+|LEARN KAFKA                                                                                                         |
+|LEARN STREAMS                                                                                                       |
+|LEARN JAVA                                                                                                          |
+Query Completed
+Query terminated
+ksql> SELECT TODOTITLE from todos_upperstream emit changes;
++--------------------------------------------------------------------------------------------------------------------+
+|TODOTITLE                                                                                                           |
++--------------------------------------------------------------------------------------------------------------------+
+|LEARN STREAMS                                                                                                       |
+|LEARN KAFKA                                                                                                         |
+|LEARN JAVA                                                                                                          |
+|HOW ARE YOU                                                                                                         |
+|STREAMING                                                                                                           |
+^CQuery terminated
+
+
+Statefull operations: tables:
+
+Create STREAM readings(sensor VARCHAR KEY,reading DOUBLE,location VARCHAR) WITH (kafka_topic='readings',value_format='json',partitions=3);
+
+INSERT INTO readings(sensor,reading,location) VALUES('sensor-1',45,'wheel');
+INSERT INTO readings(sensor,reading,location) VALUES('sensor-2',42,'motor');
+INSERT INTO readings(sensor,reading,location) VALUES('sensor-1',42,'wheel');
+INSERT INTO readings(sensor,reading,location) VALUES('sensor-3',42,'muffler');
+
+CREATE TABLE avg_readings AS SELECT sensor, AVG(reading) AS avg FROM readings GROUP BY sensor EMIT CHANGES;
+
+ Message
+-------------------------------------------
+ Created query with ID CTAS_AVG_READINGS_7
+-------------------------------------------
+ksql>
+
+open new command prompt try to insert  data into stream, you can find the table got updated with latest value only instead of showing log of values.
+
+
+Command Prompt:
+sql> INSERT INTO readings(sensor,reading,location) VALUES('sensor-1',45,'wheel');
+ksql> INSERT INTO readings(sensor,reading,location) VALUES('sensor-1',50,'wheel');
+ksql>
+^C
+ksql> INSERT INTO readings(sensor,reading,location) VALUES('sensor-1',70,'wheel');
+ksql>
+
+
+
+ksql> SELECT sensor,avg from avg_readings;
++---------------------------------------------------------+---------------------------------------------------------+
+|SENSOR                                                   |AVG                                                      |
++---------------------------------------------------------+---------------------------------------------------------+
+|sensor-1                                                 |45.5                                                     |
+|sensor-2                                                 |42.0                                                     |
+|sensor-3                                                 |42.0                                                     |
+Query terminated
+ksql> SELECT sensor,avg from avg_readings;
++---------------------------------------------------------+---------------------------------------------------------+
+|SENSOR                                                   |AVG                                                      |
++---------------------------------------------------------+---------------------------------------------------------+
+|sensor-1                                                 |50.4                                                     |
+|sensor-2                                                 |42.0                                                     |
+|sensor-3                                                 |42.0                                                     |
+Query terminated
+k
+
+Link:
+https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-reference/create-table/
+...................................................................................
+		 Event Driven Microservices with Spring Boot
+....................................................................................
+
+Events Sourcing:
+Data base Per service
+   =>Saga
+   =>Transactional Outbox-CDC
+.....................................................................................
+
+Spring Implementation
+
+1.Spring-kafka - Kafka Template.
+	<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka</artifactId>
+		</dependency>
+
+You publish messages and consume messages.
+....................................................................................
+			  Microservices
+
+1.SAGA pattern,CQRS Pattern,Transactional outbox....
+
+1.Spring Cloud:
+https://spring.io/projects/spring-cloud-stream
+  publishing and consuming events.
+
+2.Spring cloud data flow - Stream Processing...
+https://spring.io/projects/spring-cloud-dataflow
+
+
+https://github.com/GreenwaysTechnology/IRIS-Spring-MicroServices
+
+
+
 
 
 
